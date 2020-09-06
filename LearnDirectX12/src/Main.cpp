@@ -33,7 +33,6 @@ using namespace Microsoft::WRL;
 #include <algorithm> 
 #include <cassert>
 #include <chrono>
-#include <string>
 
 // Helper functions.
 #include "Helpers.h"
@@ -86,31 +85,6 @@ bool g_Fullscreen = false;
 // Window callback function.
 LRESULT CALLBACK WndProc( HWND, UINT, WPARAM, LPARAM );
 
-void ParseCommandLineArguments()
-{
-	int argc;
-	wchar_t** argv = ::CommandLineToArgvW( ::GetCommandLineW(), &argc );
-
-	for ( size_t i = 0; i < argc; ++i )
-	{
-		if ( ::wcscmp( argv[i], L"-w" ) == 0 || ::wcscmp( argv[i], L"--width" ) == 0 )
-		{
-			g_ClientWidth = ::wcstol( argv[++i], nullptr, 10 );
-		}
-		if ( ::wcscmp( argv[i], L"-h" ) == 0 || ::wcscmp( argv[i], L"--height" ) == 0 )
-		{
-			g_ClientHeight = ::wcstol( argv[++i], nullptr, 10 );
-		}
-		if ( ::wcscmp( argv[i], L"-warp" ) == 0 || ::wcscmp( argv[i], L"--warp" ) == 0 )
-		{
-			g_UseWarp = true;
-		}
-	}
-
-	// Free memory allocated by CommandLineToArgvW
-	::LocalFree( argv );
-}
-
 void EnableDebugLayer()
 {
 #if defined(_DEBUG)
@@ -127,30 +101,33 @@ void EnableDebugLayer()
 // Window
 //------------------------------------------------------------------------------------------------
 
-void RegisterWindowClass( HINSTANCE hInstance, const wchar_t* windowClassName )
+void RegisterWindowClass( HINSTANCE hInstance, const char* windowClassName )
 {
 	// Register a window class for creating our render window with. 
-	WNDCLASSEX windowClass = {};
+	WNDCLASSEX wc = {};
 
-	windowClass.cbSize = sizeof( WNDCLASSEX );
-	windowClass.style = CS_HREDRAW | CS_VREDRAW;
-	windowClass.lpfnWndProc = &WndProc;
-	windowClass.cbClsExtra = 0;
-	windowClass.cbWndExtra = 0;
-	windowClass.hInstance = hInstance;
-	windowClass.hIcon = LoadIcon( hInstance, nullptr );
-	windowClass.hCursor = LoadCursor( nullptr, IDC_ARROW );
-	windowClass.hbrBackground = (HBRUSH)( COLOR_WINDOW + 1 );
-	windowClass.lpszMenuName = nullptr;
-	windowClass.lpszClassName = windowClassName;
-	windowClass.hIconSm = LoadIcon( hInstance, nullptr );
+	wc.cbSize = sizeof( WNDCLASSEX );
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.lpfnWndProc = &WndProc;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.hInstance = hInstance;
+	wc.hIcon = LoadIcon( hInstance, nullptr );
+	wc.hCursor = LoadCursor( nullptr, IDC_ARROW );
+	wc.hbrBackground = (HBRUSH)( COLOR_WINDOW + 1 );
+	wc.lpszMenuName = nullptr;
+	wc.lpszClassName = windowClassName;
+	wc.hIconSm = LoadIcon( hInstance, nullptr );
 
-	static ATOM atom = RegisterClassEx( &windowClass );
-	assert( atom > 0 );
+	if ( !RegisterClassEx( &wc ) )
+	{
+		MessageBox( nullptr, "Error registering class",
+			"Error", MB_OK | MB_ICONERROR );
+	}
 }
 
-HWND CreateWindow( const wchar_t* windowClassName, HINSTANCE hInstance,
-	const wchar_t* windowTitle, uint32_t width, uint32_t height )
+HWND CreateWindow( const char* windowClassName, HINSTANCE hInstance,
+	const char* windowTitle, uint32_t width, uint32_t height )
 {
 	// Get system specific info, in this case - the display monitor. 
 	int screenWidth = GetSystemMetrics( SM_CXSCREEN );
@@ -486,9 +463,9 @@ void Update()
 	elapsedSeconds += deltaTime.count() * 1e-9;
 	if ( elapsedSeconds > 1.0 )
 	{
-		wchar_t buffer[500];
+		char buffer[500];
 		auto fps = frameCounter / elapsedSeconds;
-		swprintf_s( buffer, 500, L"FPS: %f\n", fps );
+		sprintf_s( buffer, 500, "FPS: %f\n", fps );
 		OutputDebugString( buffer );
 
 		frameCounter = 0;
@@ -516,7 +493,7 @@ void Render()
 
 		g_CommandList->ResourceBarrier( 1, &barrier );
 
-		float clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+		float clearColor[] = { 0.2f, 0.7f, 0.13f, 1.0f }; // { 0.4f, 0.6f, 0.9f, 1.0f };  0.20f, 0.70f, 0.13f, 1.00f );
 		CD3DX12_CPU_DESCRIPTOR_HANDLE rtv( g_RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
 			g_CurrentBackBufferIndex, g_RTVDescriptorSize );
 
@@ -595,7 +572,7 @@ void SetFullscreen( bool fullscreen )
 			// so the client area fills the entire screen.
 			UINT windowStyle = WS_OVERLAPPEDWINDOW & ~( WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX );
 
-			SetWindowLongW( g_hWnd, GWL_STYLE, windowStyle );
+			SetWindowLong( g_hWnd, GWL_STYLE, windowStyle );
 
 			// Query the name of the nearest display device for the window.
 			// This is required to set the fullscreen dimensions for the window
@@ -689,7 +666,7 @@ LRESULT CALLBACK WndProc( HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam 
 	}
 	else
 	{
-		return ::DefWindowProcW( hwnd, message, wParam, lParam );
+		return ::DefWindowProc( hwnd, message, wParam, lParam );
 	}
 
 	return 0;
@@ -707,15 +684,14 @@ int CALLBACK WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 	SetThreadDpiAwarenessContext( DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 );
 
 	// Window class name. Used for registering / creating the window. 
-	const wchar_t* windowClassName = L"DX12WindowClass";
-	ParseCommandLineArguments();
+	const char* windowClassName = "DX12WindowClass";
 
 	EnableDebugLayer();
 
 	g_TearingSupported = CheckTearingSupport();
 
 	RegisterWindowClass( hInstance, windowClassName );
-	g_hWnd = CreateWindow( windowClassName, hInstance, L"Learning DirectX 12",
+	g_hWnd = CreateWindow( windowClassName, hInstance, "Learning DirectX 12",
 		g_ClientWidth, g_ClientHeight );
 
 	// Initialize the global window rect variable.
