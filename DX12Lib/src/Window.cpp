@@ -5,7 +5,7 @@
 #include "Game.h"
 #include "Helpers.h"
 
-#include <d3dx12.h>
+#include "d3dx12.h"
 
 #include <algorithm>
 #include <cassert>

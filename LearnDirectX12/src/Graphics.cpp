@@ -355,7 +355,11 @@ void Graphics::OnRender( RenderEventArgs& e )
         TransitionResource( commandList, backBuffer,
             D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET );
 
-        float clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f }; // For my iconic green: { 0.2f, 0.7f, 0.13f, 1.0f }.
+        float clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+        // For my iconic green: 
+        // { 0.2f, 0.7f, 0.13f, 1.0f };
+        // Lighter green:
+        // { 0.14f, 1.22f, 0.13f, 1.0f };
 
         ClearRTV( commandList, rtv, clearColor );
         ClearDepth( commandList, dsv );
